@@ -1,0 +1,72 @@
+install.packages(c('neuralnet', 'keras', 'tensorflow'), dependencies = TRUE)
+install.packages("tidyverse")
+
+library(neuralnet)
+library(tidyverse)
+
+iris <- iris %>% mutate(across(where(is.character), as.factor))
+print(sample_n(iris, 3))  
+
+summary(iris)
+
+
+set.seed(254)
+data_rows <- floor(0.80 * nrow(iris))
+train_indices <- sample(seq_len(nrow(iris)), data_rows)
+train_data <- iris[train_indices, ]
+test_data <- iris[-train_indices, ]
+
+
+cat("Number of unique rows in train_data:\n")
+print(nrow(unique(train_data)))
+cat("Number of unique rows in test_data:\n")
+print(nrow(unique(test_data)))
+
+
+cat("Random sample of train_data:\n")
+print(sample_n(train_data, 3))
+
+cat("Random sample of test_data:\n")
+print(sample_n(test_data, 3))
+
+
+train_and_evaluate <- function(hidden_layers) {
+  model <- neuralnet(Species ~ Sepal.Length + Sepal.Width + Petal.Length + Petal.Width,
+                     data = train_data, hidden = hidden_layers, linear.output = FALSE)
+  plot(model, rep = 'best')
+  
+
+  pred <- predict(model, test_data[, -5])
+  labels <- c("setosa", "versicolor", "virginica")
+  
+
+  prediction_label <- tibble(max.col = max.col(pred)) %>%
+    mutate(pred = labels[max.col]) %>%
+    select(pred) %>%
+    unlist()
+  
+
+  confusion_matrix <- table(test_data$Species, prediction_label)
+  print(confusion_matrix)
+  
+
+  check <- as.numeric(test_data$Species) == max.col(pred)
+  accuracy <- (sum(check) / nrow(test_data)) * 100
+  print(paste("Accuracy for hidden layers", paste(hidden_layers, collapse = ","), ":", accuracy))
+  
+ 
+  sample_indices <- sample(seq_len(nrow(test_data)), 3)
+  cat("Sample predictions:\n")
+  for (i in sample_indices) {
+    cat("Actual: ", as.character(test_data$Species[i]), " Predicted: ", as.character(prediction_label[i]), "\n")
+  }
+  
+  return(accuracy)
+}
+
+
+hidden_layers_list <- list(c(4, 2), c(10,6), c(112,50), c(45,30))
+accuracies <- lapply(hidden_layers_list, train_and_evaluate)
+
+
+print(accuracies)
